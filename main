@@ -1,0 +1,230 @@
+import pygame
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Game constants
+TILE_SIZE = 32
+MAP_WIDTH = 30
+MAP_HEIGHT = 20
+SCREEN_WIDTH = MAP_WIDTH * TILE_SIZE
+SCREEN_HEIGHT = MAP_HEIGHT * TILE_SIZE + 150
+FPS = 60
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 128, 0)  # Grass
+BROWN = (139, 69, 19)  # Path
+BLUE = (0, 0, 255)  # Water
+RED = (255, 0, 0)  # Player
+YELLOW = (255, 255, 0)  # NPC
+PURPLE = (128, 0, 128)  # Dialogue
+GRAY = (128, 128, 128)  # Buttons
+
+class Item:
+    def __init__(self, name, base_price):
+        self.name = name
+        self.base_price = base_price
+
+class Trader:
+    def __init__(self, x, y, name, inventory, dialogue):
+        self.x = x
+        self.y = y
+        self.name = name
+        self.inventory = inventory
+        self.dialogue = dialogue
+
+class Player:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.inventory = {"Potion": 2, "Pokeball": 1}
+        self.money = 200
+        self.move_cooldown = 0
+
+class TradeGame:
+    def __init__(self):
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Trader Adventure")
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("Arial", 24)
+        self.items = {
+            "Potion": Item("Potion", 10),
+            "Pokeball": Item("Pokeball", 15)
+        }
+        self.player = Player(5, 5)
+        self.traders = [
+            Trader(10, 5, "Trader Bob", {"Potion": 5, "Pokeball": 3}, "Want some potions?"),
+            Trader(15, 10, "Trader Alice", {"Pokeball": 4, "Potion": 2}, "Got any items?")
+        ]
+        self.map_data = [[0 for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
+        self.generate_map()
+        self.trading_with = None
+        self.message = ""
+        self.message_timer = 0
+        self.running = True
+        self.move_delay = 10
+
+    def generate_map(self):
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                r = random.randint(0, 100)
+                if r < 70:
+                    self.map_data[y][x] = 0  # Grass
+                elif r < 90:
+                    self.map_data[y][x] = 1  # Path
+                else:
+                    self.map_data[y][x] = 2  # Water
+        self.map_data[self.player.y][self.player.x] = 0
+        for trader in self.traders:
+            self.map_data[trader.y][trader.x] = 0
+
+    def draw_map(self):
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                tile = self.map_data[y][x]
+                color = GREEN if tile == 0 else BROWN if tile == 1 else BLUE
+                pygame.draw.rect(self.screen, color, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+                pygame.draw.rect(self.screen, BLACK, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 1)
+
+    def draw_player(self):
+        pygame.draw.circle(self.screen, RED, (self.player.x * TILE_SIZE + TILE_SIZE // 2, self.player.y * TILE_SIZE + TILE_SIZE // 2), TILE_SIZE // 3)
+        pygame.draw.circle(self.screen, BLACK, (self.player.x * TILE_SIZE + TILE_SIZE // 2, self.player.y * TILE_SIZE + TILE_SIZE // 2), TILE_SIZE // 3, 2)
+
+    def draw_traders(self):
+        for trader in self.traders:
+            points = [
+                (trader.x * TILE_SIZE + TILE_SIZE // 2, trader.y * TILE_SIZE + TILE_SIZE // 4),
+                (trader.x * TILE_SIZE + TILE_SIZE // 4, trader.y * TILE_SIZE + 3 * TILE_SIZE // 4),
+                (trader.x * TILE_SIZE + 3 * TILE_SIZE // 4, trader.y * TILE_SIZE + 3 * TILE_SIZE // 4)
+            ]
+            pygame.draw.polygon(self.screen, YELLOW, points)
+            pygame.draw.polygon(self.screen, BLACK, points, 2)
+            name_text = self.font.render(trader.name, True, BLACK)
+            self.screen.blit(name_text, (trader.x * TILE_SIZE, trader.y * TILE_SIZE - 15))
+
+    def draw_hud(self):
+        pygame.draw.rect(self.screen, WHITE, (0, MAP_HEIGHT * TILE_SIZE, SCREEN_WIDTH, 150))
+        money_text = self.font.render(f"Money: ${self.player.money}", True, BLACK)
+        self.screen.blit(money_text, (10, MAP_HEIGHT * TILE_SIZE + 10))
+        inv_text = self.font.render(f"Inventory: {', '.join(f'{k}: {v}' for k, v in self.player.inventory.items())}", True, BLACK)
+        self.screen.blit(inv_text, (10, MAP_HEIGHT * TILE_SIZE + 40))
+        if self.trading_with:
+            trader_inv = ', '.join(f'{k}: {v}' for k, v in self.trading_with.inventory.items())
+            trader_text = self.font.render(f"Trading with {self.trading_with.name}: {trader_inv}", True, BLACK)
+            self.screen.blit(trader_text, (10, MAP_HEIGHT * TILE_SIZE + 70))
+            trader_dialogue = self.font.render(self.trading_with.dialogue, True, PURPLE)
+            self.screen.blit(trader_dialogue, (10, MAP_HEIGHT * TILE_SIZE + 100))
+            for i, item_name in enumerate(self.items):
+                buy_price = int(self.items[item_name].base_price * 1.2)
+                sell_price = int(self.items[item_name].base_price * 0.8)
+                buy_button = pygame.Rect(300 + i * 120, MAP_HEIGHT * TILE_SIZE + 10, 100, 30)
+                sell_button = pygame.Rect(300 + i * 120, MAP_HEIGHT * TILE_SIZE + 50, 100, 30)
+                pygame.draw.rect(self.screen, GRAY, buy_button)
+                pygame.draw.rect(self.screen, GRAY, sell_button)
+                pygame.draw.rect(self.screen, BLACK, buy_button, 2)
+                pygame.draw.rect(self.screen, BLACK, sell_button, 2)
+                buy_text = self.font.render(f"Buy {item_name} (${buy_price})", True, BLACK)
+                sell_text = self.font.render(f"Sell {item_name} (${sell_price})", True, BLACK)
+                self.screen.blit(buy_text, (buy_button.x + 5, buy_button.y + 5))
+                self.screen.blit(sell_text, (sell_button.x + 5, sell_button.y + 5))
+        if self.message:
+            msg_text = self.font.render(self.message, True, RED)
+            self.screen.blit(msg_text, (SCREEN_WIDTH // 2 - 100, MAP_HEIGHT * TILE_SIZE + 120))
+
+    def buy_item(self, name):
+        item = self.items[name]
+        buy_price = int(item.base_price * 1.2)
+        if self.player.money >= buy_price and self.trading_with.inventory.get(name, 0) > 0:
+            self.player.money -= buy_price
+            self.player.inventory[name] = self.player.inventory.get(name, 0) + 1
+            self.trading_with.inventory[name] -= 1
+            self.message = f"Bought {name} for ${buy_price}!"
+            self.message_timer = FPS * 2
+        else:
+            self.message = "Can't buy: not enough money or stock!"
+            self.message_timer = FPS * 2
+
+    def sell_item(self, name):
+        item = self.items[name]
+        sell_price = int(item.base_price * 0.8)
+        if self.player.inventory.get(name, 0) > 0:
+            self.player.money += sell_price
+            self.player.inventory[name] -= 1
+            self.trading_with.inventory[name] = self.trading_with.inventory.get(name, 0) + 1
+            self.message = f"Sold {name} for ${sell_price}!"
+            self.message_timer = FPS * 2
+        else:
+            self.message = f"No {name} to sell!"
+            self.message_timer = FPS * 2
+
+    def handle_input(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if self.trading_with and event.key == pygame.K_ESCAPE:
+                    self.trading_with = None
+                    self.message = ""
+                    print("Exited trading mode")
+                elif not self.trading_with and self.player.move_cooldown <= 0:
+                    new_x, new_y = self.player.x, self.player.y
+                    if event.key == pygame.K_LEFT:
+                        new_x -= 1
+                        print("Left key pressed")
+                    elif event.key == pygame.K_RIGHT:
+                        new_x += 1
+                        print("Right key pressed")
+                    elif event.key == pygame.K_UP:
+                        new_y -= 1
+                        print("Up key pressed")
+                    elif event.key == pygame.K_DOWN:
+                        new_y += 1
+                        print("Down key pressed")
+                    if 0 <= new_x < MAP_WIDTH and 0 <= new_y < MAP_HEIGHT and self.map_data[new_y][new_x] != 2:
+                        self.player.x, self.player.y = new_x, new_y
+                        self.player.move_cooldown = self.move_delay
+                        print(f"Player moved to ({new_x}, {new_y})")
+                        for trader in self.traders:
+                            if self.player.x == trader.x and self.player.y == trader.y:
+                                self.trading_with = trader
+                                self.message = f"Talking to {trader.name}!"
+                                self.message_timer = FPS * 2
+                                print(f"Interacting with {trader.name}")
+                                break
+            elif event.type == pygame.MOUSEBUTTONDOWN and self.trading_with:
+                mouse_pos = pygame.mouse.get_pos()
+                for i, item_name in enumerate(self.items):
+                    buy_button = pygame.Rect(300 + i * 120, MAP_HEIGHT * TILE_SIZE + 10, 100, 30)
+                    sell_button = pygame.Rect(300 + i * 120, MAP_HEIGHT * TILE_SIZE + 50, 100, 30)
+                    if buy_button.collidepoint(mouse_pos):
+                        self.buy_item(item_name)
+                        print(f"Attempted to buy {item_name}")
+                    elif sell_button.collidepoint(mouse_pos):
+                        self.sell_item(item_name)
+                        print(f"Attempted to sell {item_name}")
+        
+        if self.player.move_cooldown > 0:
+            self.player.move_cooldown -= 1
+
+    def run(self):
+        while self.running:
+            self.handle_input()
+            self.screen.fill(WHITE)
+            self.draw_map()
+            self.draw_traders()
+            self.draw_player()
+            self.draw_hud()
+            if self.message_timer > 0:
+                self.message_timer -= 1
+                if self.message_timer == 0:
+                    self.message = ""
+            pygame.display.flip()
+            self.clock.tick(FPS)
+        pygame.quit()
+
+if __name__ == "__main__":
+    game = TradeGame()
+    game.run()
