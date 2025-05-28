@@ -12,7 +12,7 @@ Dynamic Messages: Feedback messages appear for actions like trading or attemptin
 Requirements
 
 Python 3.x
-Pygame: Install via pip:pip install pygame
+Pygame: Install via pip: pip install pygame
 
 
 
