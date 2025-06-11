@@ -1,13 +1,6 @@
-Trader Adventure
-Overview
-Trader Adventure is a 2D top-down game built with Python and Pygame. In this game, you control a player who navigates a procedurally generated map, interacts with traders, and engages in buying and selling items such as Potions and Pokeballs. The goal is to manage your inventory and money through strategic trading while exploring a map consisting of grass, paths, and water tiles.
-Features
+Trader Adventure is a 2D top-down game made with Python and Pygame. You play as a character exploring a randomly generated world filled with grass, paths, and water. Along the way, you meet traders and can buy or sell items like Potions and Pokeballs. The goal is to manage your money and inventory wisely while moving around the map and interacting with different characters.
 
-Procedural Map Generation: The game generates a map with grass (70%), paths (20%), and water (10%) tiles.
-Player Movement: Move the player using arrow keys (Up, Down, Left, Right) across valid tiles (grass or paths).
-Trading System: Interact with traders to buy or sell items, with prices adjusted for buying (120% of base price) and selling (80% of base price).
-Interactive HUD: Displays player money, inventory, trader details, and dialogue during interactions.
-Dynamic Messages: Feedback messages appear for actions like trading or attempting invalid actions.
+The map is made up of different tile types—mostly grass, with some paths and a bit of water. You can move using the arrow keys, but only across grass and path tiles. When trading, items cost more to buy and less to sell, so thinking strategically helps. A simple HUD shows your money, inventory, and trader details, and the game gives feedback messages when you do things like trade or try something that’s not allowed.
 
 Requirements
 
